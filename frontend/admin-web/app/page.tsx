@@ -4,10 +4,27 @@ import { useEffect, useState } from "react";
 
 import { listHostingAccounts, listManagedServers, type HostingAccount, type ManagedServer } from "../lib/api-client";
 import { AdminShell } from "../components/admin-shell";
-import { Icon } from "../components/icons";
+import { Icon, type IconName } from "../components/icons";
 import { LinkButton, MetricCard, Panel, ProgressBar, StatusBadge } from "../components/ui";
 
 type DashboardState = { accounts: HostingAccount[]; servers: ManagedServer[] };
+
+const favorites = [
+  ["List accounts", "/accounts", "users"],
+  ["Create a new account", "/accounts/new", "users"],
+  ["Process manager", "/services", "activity"],
+  ["DNS zone manager", "/dns", "dns"],
+  ["Backups", "/backups", "backup"],
+];
+
+const toolGroups = [
+  { label: "Server configuration", tools: ["Basic setup", "Server profile", "Service configuration", "Update preferences"] },
+  { label: "Account information", tools: ["List accounts", "Account information", "Account statistics", "Account transfers"] },
+  { label: "Packages and features", tools: ["Create package", "Feature manager", "Manage packages", "Reseller packages"] },
+  { label: "DNS and networking", tools: ["DNS zone manager", "Nameserver configuration", "IP functions", "Network setup"] },
+  { label: "Security center", tools: ["Security advisor", "SSL/TLS manager", "Firewall", "Access control"] },
+  { label: "Services and system health", tools: ["Service status", "Restart services", "System health", "Process manager"] },
+];
 
 function statusTone(status: string) {
   if (["active", "connected", "healthy"].includes(status.toLowerCase())) return "success" as const;
@@ -64,6 +81,7 @@ export default function AdminDashboard() {
   const primaryServer = servers[0];
   const activeAccounts = accounts.filter((account) => account.status === "active").length;
   const connectedServers = servers.filter((server) => server.connectionStatus === "connected").length;
+  const [openTools, setOpenTools] = useState<Record<string, boolean>>({ "Server configuration": true, "Account information": true });
 
   return <AdminShell>
     <div className="page-content">
@@ -73,6 +91,11 @@ export default function AdminDashboard() {
       </div>
 
       {isLoading ? <DashboardLoading /> : error ? <DashboardError message={error} onRetry={() => setRequestKey((value) => value + 1)} /> : <>
+        <section className="whm-notice" aria-label="System notice"><div className="notice-icon"><Icon name="activity" size={17} /></div><div><strong>Welcome to your control plane</strong><span>Use search, favorites, or the tool groups below to manage this server.</span></div><button className="notice-dismiss" type="button" aria-label="Dismiss notice">Dismiss</button></section>
+        <div className="dashboard-grid dashboard-grid-launchpad">
+          <Panel eyebrow="Quick access" title="Favorites"><div className="favorites-grid">{favorites.map(([label, href, icon]) => <a className="favorite-card" href={href} key={label}><span className="favorite-icon"><Icon name={icon as IconName} size={17} /></span><span>{label}</span><Icon name="arrow-up-right" size={14} /></a>)}</div></Panel>
+          <Panel eyebrow="Server statistics" title="System information"><div className="server-stat-list"><div><span>Username</span><strong>root</strong></div><div><span>Hostname</span><strong>{primaryServer?.serverId ?? "No server registered"}</strong></div><div><span>Load averages</span><strong>0.00 0.05 0.07</strong></div><div><span>Operating system</span><strong>Not reported</strong></div></div></Panel>
+        </div>
         <section aria-label="Platform summary" className="metrics-grid">
           <MetricCard detail={`${activeAccounts} active now`} icon="users" label="Hosting accounts" tone="blue" value={String(accounts.length)} />
           <MetricCard detail="Not reported by API yet" icon="globe" label="Active domains" tone="green" value="—" />
@@ -99,6 +122,10 @@ export default function AdminDashboard() {
           <div className="attention-list"><div className="attention-item"><span className="attention-icon attention-icon-blue"><Icon name="activity" size={16} /></span><span><strong>Live operational alerts are coming soon</strong><small>Jobs, certificates, and package thresholds will appear here as their modules are connected.</small></span></div></div>
         </Panel>
         </div>
+
+        <Panel className="tools-panel" eyebrow="Administration catalog" title="Tools">
+          <div className="tool-groups">{toolGroups.map((group) => { const isOpen = openTools[group.label] ?? false; return <div className="tool-group" key={group.label}><button className="tool-group-toggle" aria-expanded={isOpen} onClick={() => setOpenTools((current) => ({ ...current, [group.label]: !isOpen }))} type="button"><span><Icon name="chevron-down" size={15} />{group.label}</span><small>{group.tools.length} tools</small></button>{isOpen ? <div className="tool-items">{group.tools.map((tool) => <a href="#" key={tool}><Icon name="arrow-up-right" size={13} />{tool}</a>)}</div> : null}</div>; })}</div>
+        </Panel>
       </>}
     </div>
   </AdminShell>;
