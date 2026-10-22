@@ -8,14 +8,24 @@ The dashboard currently demonstrates:
 
 - grouped navigation for websites, domains, applications, mail, and support;
 - quick-access links for common account tools;
-- account summary cards for sites, databases, mailboxes, and certificates;
-- accessible resource usage meters;
+- account summary cards backed by the control-plane account and server collections;
+- accessible resource usage panel with API loading, error, and empty states;
 - recent account activity;
-- website and domain status with SSL state;
+- explicit loading, error, and empty states for API-backed and not-yet-connected areas;
 - responsive navigation and layouts for smaller screens;
 - keyboard focus states, a skip link, semantic headings, labelled navigation, and reduced-motion support.
 
-The values are presentation fixtures until the versioned control-plane API is connected. Keep the fixture shape close to the future API contract so the integration remains an explicit boundary.
+The dashboard uses the versioned control-plane API endpoints `GET /api/v1/accounts` and `GET /api/v1/servers`. Domain, usage, activity, and service-specific data remain empty states until their dedicated customer APIs exist; the UI does not present fixture values as live data.
+
+## Configuration
+
+Copy `.env.example` to `.env.local` and set the control-plane origin:
+
+```sh
+NEXT_PUBLIC_HARBOR_API_BASE_URL=http://localhost:8080
+```
+
+Do not include `/api/v1` in the value. The API client validates the response envelopes and the snake_case backend fields locally before exposing camelCase data to the UI.
 
 ## Boundaries
 

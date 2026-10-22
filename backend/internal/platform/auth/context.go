@@ -43,6 +43,23 @@ type Authenticator interface {
 	Authenticate(ctx context.Context, credentials Credentials) (Principal, error)
 }
 
+type principalContextKey struct{}
+
+// WithPrincipal returns a context carrying an authenticated principal.
+// Middleware is responsible for placing only a successfully authenticated
+// principal into a request context.
+func WithPrincipal(ctx context.Context, principal Principal) context.Context {
+	return context.WithValue(ctx, principalContextKey{}, principal)
+}
+
+// PrincipalFromContext returns the principal installed by authentication
+// middleware. The boolean is false when the request has not been
+// authenticated.
+func PrincipalFromContext(ctx context.Context) (Principal, bool) {
+	principal, ok := ctx.Value(principalContextKey{}).(Principal)
+	return principal, ok
+}
+
 func (p Principal) HasPermission(permission identity.Permission) bool {
 	for _, granted := range p.Permissions {
 		if granted == permission {

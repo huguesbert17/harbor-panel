@@ -23,14 +23,29 @@ func NewMemoryRepository(servers ...ServerStatus) *MemoryRepository {
 	return &MemoryRepository{servers: items}
 }
 
-func (repository *MemoryRepository) List(_ context.Context) []ServerStatus {
+func (repository *MemoryRepository) List(ctx context.Context) []ServerStatus {
+	servers, _ := repository.ListAll(ctx)
+	return servers
+}
+
+func (repository *MemoryRepository) ListAll(_ context.Context) ([]ServerStatus, error) {
 	repository.mu.RLock()
 	defer repository.mu.RUnlock()
 	servers := make([]ServerStatus, 0, len(repository.servers))
 	for _, server := range repository.servers {
 		servers = append(servers, server)
 	}
-	return servers
+	return servers, nil
+}
+
+func (repository *MemoryRepository) FindByID(_ context.Context, id ID) (ServerStatus, error) {
+	repository.mu.RLock()
+	defer repository.mu.RUnlock()
+	server, exists := repository.servers[id]
+	if !exists {
+		return ServerStatus{}, ErrNotFound
+	}
+	return server, nil
 }
 
 func (repository *MemoryRepository) Register(_ context.Context, request RegistrationRequest) (ServerStatus, error) {

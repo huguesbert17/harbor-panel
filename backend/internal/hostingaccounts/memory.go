@@ -41,12 +41,17 @@ func (repository *MemoryRepository) FindByID(_ context.Context, id string) (Acco
 	return account, nil
 }
 
-func (repository *MemoryRepository) List(_ context.Context) []Account {
+func (repository *MemoryRepository) List(ctx context.Context) []Account {
+	accounts, _ := repository.ListAll(ctx)
+	return accounts
+}
+
+func (repository *MemoryRepository) ListAll(_ context.Context) ([]Account, error) {
 	repository.mu.RLock()
 	defer repository.mu.RUnlock()
 	accounts := make([]Account, 0, len(repository.accounts))
 	for _, account := range repository.accounts {
 		accounts = append(accounts, account)
 	}
-	return accounts
+	return accounts, nil
 }

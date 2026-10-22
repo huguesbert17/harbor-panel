@@ -11,11 +11,11 @@ import (
 )
 
 type Handler struct {
-	accounts *hostingaccounts.MemoryRepository
-	servers  *servers.MemoryRepository
+	accounts hostingaccounts.PersistentRepository
+	servers  servers.PersistentRepository
 }
 
-func NewHandler(accounts *hostingaccounts.MemoryRepository, serverStore *servers.MemoryRepository) http.Handler {
+func NewHandler(accounts hostingaccounts.PersistentRepository, serverStore servers.PersistentRepository) http.Handler {
 	handler := &Handler{accounts: accounts, servers: serverStore}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/accounts", handler.listAccounts)
@@ -25,11 +25,21 @@ func NewHandler(accounts *hostingaccounts.MemoryRepository, serverStore *servers
 }
 
 func (handler *Handler) listAccounts(w http.ResponseWriter, request *http.Request) {
-	httpserver.JSON(w, http.StatusOK, map[string]any{"data": handler.accounts.List(request.Context())})
+	accounts, err := handler.accounts.ListAll(request.Context())
+	if err != nil {
+		httpserver.JSON(w, http.StatusInternalServerError, map[string]string{"error": "unable to list hosting accounts"})
+		return
+	}
+	httpserver.JSON(w, http.StatusOK, map[string]any{"data": accounts})
 }
 
 func (handler *Handler) listServers(w http.ResponseWriter, request *http.Request) {
-	httpserver.JSON(w, http.StatusOK, map[string]any{"data": handler.servers.List(request.Context())})
+	servers, err := handler.servers.ListAll(request.Context())
+	if err != nil {
+		httpserver.JSON(w, http.StatusInternalServerError, map[string]string{"error": "unable to list managed servers"})
+		return
+	}
+	httpserver.JSON(w, http.StatusOK, map[string]any{"data": servers})
 }
 
 func (handler *Handler) registerServer(w http.ResponseWriter, request *http.Request) {

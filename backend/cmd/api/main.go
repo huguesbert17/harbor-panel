@@ -12,9 +12,9 @@ import (
 
 	"github.com/harbor-panel/harbor-panel/internal/controlplane"
 	"github.com/harbor-panel/harbor-panel/internal/health"
-	"github.com/harbor-panel/harbor-panel/internal/hostingaccounts"
+	"github.com/harbor-panel/harbor-panel/internal/persistence"
+	"github.com/harbor-panel/harbor-panel/internal/persistence/sqlite"
 	"github.com/harbor-panel/harbor-panel/internal/platform/httpserver"
-	"github.com/harbor-panel/harbor-panel/internal/servers"
 )
 
 const version = "0.1.0-foundation"
@@ -24,6 +24,26 @@ func main() {
 	addr := os.Getenv("HARBOR_API_ADDR")
 	if addr == "" {
 		addr = ":8080"
+	}
+	dbPath := os.Getenv("HARBOR_DB_PATH")
+	if dbPath == "" {
+		dbPath = "./harbor.db"
+	}
+	database, err := persistence.OpenSQLite(context.Background(), dbPath)
+	if err != nil {
+		logger.Error("database startup failed", "error", err)
+		os.Exit(1)
+	}
+	defer database.Close()
+	accountRepository, err := sqlite.NewAccountRepository(database)
+	if err != nil {
+		logger.Error("account repository startup failed", "error", err)
+		os.Exit(1)
+	}
+	serverRepository, err := sqlite.NewServerRepository(database)
+	if err != nil {
+		logger.Error("server repository startup failed", "error", err)
+		os.Exit(1)
 	}
 
 	mux := http.NewServeMux()
@@ -37,9 +57,7 @@ func main() {
 		httpserver.JSON(w, http.StatusOK, map[string]string{"name": "harbor-panel", "version": version})
 	})
 
-	accounts := hostingaccounts.NewMemoryRepository()
-	serverStore := servers.NewMemoryRepository()
-	apiHandler := controlplane.NewHandler(accounts, serverStore)
+	apiHandler := controlplane.NewHandler(accountRepository, serverRepository)
 	mux.Handle("/api/v1/accounts", apiHandler)
 	mux.Handle("/api/v1/servers", apiHandler)
 

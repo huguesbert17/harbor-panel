@@ -1,4 +1,8 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import { navigation } from "@harbor-panel/ui";
+import { CustomerDashboardData, getCustomerDashboardData, HostingAccount } from "./lib/customer-api";
 
 type CustomerNavItem = (typeof navigation.customer)[number];
 
@@ -44,31 +48,32 @@ const toolGroups = [
   },
 ] as const;
 
-const accountStats = [
-  ["Websites", "4", "3 online", "positive"],
-  ["Databases", "4 / 10", "6 available", "neutral"],
-  ["Mailboxes", "3 / 25", "22 available", "neutral"],
-  ["SSL certificates", "3", "All valid", "positive"],
-] as const;
+type DashboardState =
+  | { status: "loading" }
+  | { status: "ready"; data: CustomerDashboardData }
+  | { status: "error"; message: string };
 
-const resourceUsage = [
-  ["Disk space", "3.4 GB", "10 GB", 34, "blue"],
-  ["Monthly bandwidth", "42.8 GB", "100 GB", 43, "violet"],
-  ["Mailboxes", "3", "25", 12, "green"],
-  ["Databases", "4", "10", 40, "amber"],
-] as const;
+function accountStatusTone(account?: HostingAccount) {
+  if (!account) return "neutral";
+  return account.status === "active" ? "positive" : "warning";
+}
 
-const sites = [
-  ["example.com", "Primary website", "Online", "Valid", "Today, 09:42"],
-  ["store.example.com", "Online store", "Online", "Valid", "Yesterday, 18:15"],
-  ["blog.example.com", "Blog", "Attention", "Valid", "Oct 20, 14:08"],
-] as const;
+function accountStatusLabel(account?: HostingAccount) {
+  if (!account) return "Not assigned";
+  return account.status.charAt(0).toUpperCase() + account.status.slice(1);
+}
 
-const recentActivity = [
-  ["Backup completed", "example.com · Today, 09:42", "success"],
-  ["Certificate renewed", "store.example.com · Yesterday, 18:15", "success"],
-  ["New mailbox created", "hello@example.com · Oct 20, 14:08", "info"],
-] as const;
+function formatServerStatus(data: CustomerDashboardData) {
+  if (data.servers.length === 0) return "Awaiting telemetry";
+  const connected = data.servers.filter((server) => server.connectionStatus === "connected").length;
+  return `${connected} of ${data.servers.length} connected`;
+}
+
+function formatApiError(message: string) {
+  return message.includes("fetch") || message.includes("Failed")
+    ? "The control-plane API could not be reached. Check the API URL and try again."
+    : message;
+}
 
 function ToolIcon({ label }: { label: string }) {
   return (
@@ -79,6 +84,44 @@ function ToolIcon({ label }: { label: string }) {
 }
 
 export default function CustomerDashboard() {
+  const [dashboardState, setDashboardState] = useState<DashboardState>({ status: "loading" });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getCustomerDashboardData(controller.signal)
+      .then((data) => setDashboardState({ status: "ready", data }))
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          setDashboardState({ status: "error", message: error instanceof Error ? error.message : "Unable to load dashboard data." });
+        }
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  const account = dashboardState.status === "ready" ? dashboardState.data.accounts[0] : undefined;
+  const servers = dashboardState.status === "ready" ? dashboardState.data.servers : [];
+  const availableServices = useMemo(
+    () => servers.reduce((total, server) => total + server.capabilities.filter((capability) => capability.status === "available").length, 0),
+    [servers],
+  );
+  const accountStats = [
+    ["Hosting account", dashboardState.status === "loading" ? "…" : account ? "1" : "—", account ? account.username : "No account returned", accountStatusTone(account)],
+    ["Account status", dashboardState.status === "loading" ? "…" : accountStatusLabel(account), account ? `Account ID ${account.id}` : "Connect an account to continue", accountStatusTone(account)],
+    ["Managed servers", dashboardState.status === "loading" ? "…" : String(servers.length), dashboardState.status === "ready" ? formatServerStatus(dashboardState.data) : "Loading server status", servers.length > 0 ? "positive" : "neutral"],
+    ["Available services", dashboardState.status === "loading" ? "…" : String(availableServices), dashboardState.status === "ready" ? "From server capabilities" : "Loading capabilities", availableServices > 0 ? "positive" : "neutral"],
+  ] as const;
+  const healthLabel = dashboardState.status === "loading"
+    ? "Checking account health"
+    : dashboardState.status === "error"
+      ? "API unavailable"
+      : account && account.status !== "active"
+        ? `Account ${account.status}`
+        : servers.length === 0
+          ? "Awaiting server telemetry"
+          : "Account healthy";
+  const healthTone = dashboardState.status === "error" || (account && account.status !== "active") ? "warning" : "positive";
+
   return (
     <div className="shell">
       <a className="skip-link" href="#main-content">
@@ -95,7 +138,7 @@ export default function CustomerDashboard() {
           </a>
           <div className="account-switcher">
             <span className="account-switcher-label">Account</span>
-            <strong>Alex Morgan</strong>
+            <strong>{account?.username ?? (dashboardState.status === "loading" ? "Loading account…" : "Customer account")}</strong>
             <span className="account-switcher-caret" aria-hidden="true">
               ⌄
             </span>
@@ -135,7 +178,7 @@ export default function CustomerDashboard() {
         </nav>
         <div className="sidebar-footer">
           <span className="status-dot" aria-hidden="true" />
-          <span>All systems operational</span>
+          <span>{dashboardState.status === "ready" ? formatServerStatus(dashboardState.data) : dashboardState.status === "error" ? "API unavailable" : "Checking systems…"}</span>
         </div>
       </aside>
 
@@ -149,8 +192,8 @@ export default function CustomerDashboard() {
           <div className="topbar-actions">
             <a className="topbar-link" href="/support">Help center</a>
             <span className="user-divider" aria-hidden="true" />
-            <a className="user" href="/profile" aria-label="Open profile for admin@example.com">
-              <span className="user-email">admin@example.com</span>
+            <a className="user" href="/profile" aria-label="Open customer profile">
+              <span className="user-email">{account?.username ?? "customer account"}</span>
               <span className="avatar" aria-hidden="true">AM</span>
             </a>
           </div>
@@ -168,12 +211,12 @@ export default function CustomerDashboard() {
         <div className="content">
           <section className="welcome-row" aria-labelledby="page-title">
             <div>
-              <p className="eyebrow">Business plan · Account #HM-1048</p>
-              <h1 id="page-title">Good morning, Alex</h1>
+              <p className="eyebrow">Customer account{account ? ` · ${account.id}` : ""}</p>
+              <h1 id="page-title">Welcome to your hosting account</h1>
               <p className="subtitle">Manage your websites and hosting services from one place.</p>
             </div>
             <div className="welcome-actions">
-              <span className="health-badge"><span className="status-dot" aria-hidden="true" /> Account healthy</span>
+              <span className={`health-badge ${healthTone}`} aria-live="polite"><span className="status-dot" aria-hidden="true" /> {healthLabel}</span>
               <a className="primary-button" href="/domains/new"><span aria-hidden="true">+</span> Add domain</a>
             </div>
           </section>
@@ -184,7 +227,7 @@ export default function CustomerDashboard() {
                 <div className="stat-label">{label}</div>
                 <div className="stat-value-row">
                   <strong>{value}</strong>
-                  <span className={`stat-indicator ${tone}`}>{tone === "positive" ? "●" : ""}</span>
+                  <span className={`stat-indicator ${tone}`}>{tone === "positive" ? "●" : tone === "warning" ? "!" : ""}</span>
                 </div>
                 <div className="stat-detail">{detail}</div>
               </div>
@@ -231,20 +274,17 @@ export default function CustomerDashboard() {
                 </div>
                 <a className="text-link" href="/usage">View details</a>
               </div>
-              <div className="usage-list">
-                {resourceUsage.map(([label, used, limit, percentage, tone]) => (
-                  <div className="usage-row" key={label}>
-                    <div className="usage-row-heading">
-                      <span>{label}</span>
-                      <strong>{used} <span className="usage-limit">of {limit}</span></strong>
-                    </div>
-                    <div className="progress-track" role="progressbar" aria-label={`${label} usage`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}>
-                      <span className={`progress-fill ${tone}`} style={{ width: `${percentage}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="usage-note"><span className="status-dot" aria-hidden="true" /> You have room to grow on your current plan.</div>
+              {dashboardState.status === "loading" ? (
+                <div className="state-card loading-state" role="status">Loading usage and quota information…</div>
+              ) : dashboardState.status === "error" ? (
+                <div className="state-card error-state" role="alert">{formatApiError(dashboardState.message)}</div>
+              ) : (
+                <div className="state-card empty-state">
+                  <strong>{account ? "Usage data is not connected yet" : "No hosting account is assigned"}</strong>
+                  <p>{account ? "Quota and bandwidth details will appear when the usage API is available." : "Ask an administrator to assign a hosting account before managing services."}</p>
+                </div>
+              )}
+              <div className="usage-note"><span className="status-dot" aria-hidden="true" /> Account limits will be shown here when available.</div>
             </section>
 
             <section className="card panel activity-panel" aria-labelledby="activity-title">
@@ -255,14 +295,13 @@ export default function CustomerDashboard() {
                 </div>
                 <a className="text-link" href="/activity" aria-label="View all account activity">View all</a>
               </div>
-              <div className="activity-list">
-                {recentActivity.map(([title, detail, tone]) => (
-                  <div className="activity-item" key={title}>
-                    <span className={`activity-icon ${tone}`} aria-hidden="true">{tone === "success" ? "✓" : "i"}</span>
-                    <div><strong>{title}</strong><p>{detail}</p></div>
-                  </div>
-                ))}
-              </div>
+              {dashboardState.status === "loading" ? (
+                <div className="state-card loading-state" role="status">Loading recent activity…</div>
+              ) : dashboardState.status === "error" ? (
+                <div className="state-card error-state" role="alert">Activity is unavailable while the API is offline.</div>
+              ) : (
+                <div className="state-card empty-state"><strong>No recent activity</strong><p>The activity feed will appear when account events are available.</p></div>
+              )}
             </section>
           </div>
 
@@ -274,33 +313,13 @@ export default function CustomerDashboard() {
               </div>
               <a className="text-link" href="/domains">Manage domains <span aria-hidden="true">→</span></a>
             </div>
-            <div className="table-wrap">
-              <table>
-                <caption className="sr-only">Websites and domain status</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Domain</th>
-                    <th scope="col">Site</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">SSL/TLS</th>
-                    <th scope="col">Last activity</th>
-                    <th scope="col"><span className="sr-only">Actions</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sites.map(([domain, site, status, ssl, updated]) => (
-                    <tr key={domain}>
-                      <td><a className="domain-link" href={`/domains/${domain}`}>{domain}</a></td>
-                      <td className="table-muted">{site}</td>
-                      <td><span className={`status-pill ${status === "Online" ? "online" : "attention"}`}><span aria-hidden="true">●</span> {status}</span></td>
-                      <td><span className="ssl-status"><span aria-hidden="true">✓</span> {ssl}</span></td>
-                      <td className="table-muted">{updated}</td>
-                      <td><a className="row-action" href={`/domains/${domain}`}>Manage</a></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {dashboardState.status === "loading" ? (
+              <div className="state-card loading-state" role="status">Loading domains…</div>
+            ) : dashboardState.status === "error" ? (
+              <div className="state-card error-state" role="alert">Domains are unavailable while the API is offline.</div>
+            ) : (
+              <div className="state-card empty-state"><strong>No domains to display</strong><p>The domains API is not connected yet. Use the Domains tool to manage this area when it becomes available.</p></div>
+            )}
           </section>
 
           <footer className="page-footer">
