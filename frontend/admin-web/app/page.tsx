@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { listHostingAccounts, listManagedServers, type HostingAccount, type ManagedServer } from "../lib/api-client";
 import { AdminShell } from "../components/admin-shell";
 import { Icon, type IconName } from "../components/icons";
-import { LinkButton, MetricCard, Panel, ProgressBar, StatusBadge } from "../components/ui";
+import { LinkButton, Panel, ProgressBar, StatusBadge } from "../components/ui";
 
 type DashboardState = { accounts: HostingAccount[]; servers: ManagedServer[] };
 
@@ -79,30 +79,16 @@ export default function AdminDashboard() {
   const accounts = dashboard?.accounts ?? [];
   const servers = dashboard?.servers ?? [];
   const primaryServer = servers[0];
-  const activeAccounts = accounts.filter((account) => account.status === "active").length;
-  const connectedServers = servers.filter((server) => server.connectionStatus === "connected").length;
   const [openTools, setOpenTools] = useState<Record<string, boolean>>({ "Server configuration": true, "Account information": true });
 
   return <AdminShell>
     <div className="page-content">
-      <div className="page-heading">
-        <div><div className="breadcrumb"><span>Administration</span><Icon name="chevron-down" size={13} /><strong>Dashboard</strong></div><h1>Server overview</h1><p className="page-subtitle">Manage your hosting platform, accounts, and infrastructure from one place.</p></div>
-        <div className="heading-actions"><a className="button button-secondary" href="/servers"><Icon name="server" size={16} /> View server</a><a className="button button-primary" href="/accounts/new"><span className="button-plus">+</span> Create account</a></div>
-      </div>
-
       {isLoading ? <DashboardLoading /> : error ? <DashboardError message={error} onRetry={() => setRequestKey((value) => value + 1)} /> : <>
         <section className="whm-notice" aria-label="System notice"><div className="notice-icon"><Icon name="activity" size={17} /></div><div><strong>Welcome to your control plane</strong><span>Use search, favorites, or the tool groups below to manage this server.</span></div><button className="notice-dismiss" type="button" aria-label="Dismiss notice">Dismiss</button></section>
         <div className="dashboard-grid dashboard-grid-launchpad">
           <Panel eyebrow="Quick access" title="Favorites"><div className="favorites-grid">{favorites.map(([label, href, icon]) => <a className="favorite-card" href={href} key={label}><span className="favorite-icon"><Icon name={icon as IconName} size={17} /></span><span>{label}</span><Icon name="arrow-up-right" size={14} /></a>)}</div></Panel>
           <Panel eyebrow="Server statistics" title="System information"><div className="server-stat-list"><div><span>Username</span><strong>root</strong></div><div><span>Hostname</span><strong>{primaryServer?.serverId ?? "No server registered"}</strong></div><div><span>Load averages</span><strong>0.00 0.05 0.07</strong></div><div><span>Operating system</span><strong>Not reported</strong></div></div></Panel>
         </div>
-        <section aria-label="Platform summary" className="metrics-grid">
-          <MetricCard detail={`${activeAccounts} active now`} icon="users" label="Hosting accounts" tone="blue" value={String(accounts.length)} />
-          <MetricCard detail="Not reported by API yet" icon="globe" label="Active domains" tone="green" value="—" />
-          <MetricCard detail="Not reported by API yet" icon="database" label="Storage used" tone="purple" value="—" />
-          <MetricCard detail={`${connectedServers} connected`} icon="activity" label="Managed servers" tone="orange" value={String(servers.length)} />
-        </section>
-
         <div className="dashboard-grid dashboard-grid-primary">
         <Panel action={<LinkButton href="/accounts">View all accounts</LinkButton>} className="accounts-panel" eyebrow="Account management" title="Recent hosting accounts">
           {accounts.length === 0 ? <div className="panel-empty"><Icon name="users" size={20} /><strong>No hosting accounts yet</strong><span>Accounts created through the control plane will appear here.</span></div> : <div className="table-wrap"><table className="data-table"><caption className="sr-only">Recent hosting accounts</caption><thead><tr><th scope="col">Account</th><th scope="col">Primary domain</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Usage</th><th scope="col">Created</th></tr></thead><tbody>{accounts.map((item) => <tr key={item.id}><th scope="row"><a className="table-primary-link" href={`/accounts/${item.id}`}>{item.username}</a></th><td className="table-muted">Not reported</td><td className="table-muted">Not reported</td><td><StatusBadge label={displayStatus(item.status)} tone={statusTone(item.status)} /></td><td className="table-muted">Not reported</td><td className="table-muted">Not reported</td></tr>)}</tbody></table></div>}
