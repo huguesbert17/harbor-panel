@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FiArchive, FiBarChart2, FiCode, FiDatabase, FiFile, FiGlobe, FiHardDrive, FiLock, FiMail, FiSettings, FiShield, FiTool, FiUsers } from "react-icons/fi";
 import { navigation } from "@harbor-panel/ui";
 import { CustomerDashboardData, getCustomerDashboardData, HostingAccount } from "./lib/customer-api";
 
@@ -28,22 +29,67 @@ const navGroups: { label: string; items: readonly CustomerNavItem[] }[] = [
 
 const toolGroups = [
   {
-    label: "Websites & domains",
-    description: "Build, connect, and secure your sites.",
+    label: "Email",
+    description: "Manage mailboxes and delivery.",
+    icon: FiMail,
     tools: [
-      ["Domains", "Manage domains, subdomains, and redirects.", "/domains"],
-      ["File Manager", "Upload and organize your website files.", "/files"],
-      ["DNS Zone Editor", "Control records for your domains.", "/dns"],
-      ["SSL/TLS", "Secure your websites with certificates.", "/ssl"],
+      ["Email Accounts", "Create and manage mailboxes.", "/email"], ["Forwarders", "Route mail to another address.", "/email/forwarders"], ["Email Routing", "Choose how mail is delivered.", "/email/routing"], ["Autoresponders", "Send automatic replies.", "/email/autoresponders"], ["Email Filters", "Organize incoming messages.", "/email/filters"], ["Spam Filters", "Protect your inbox from spam.", "/email/spam"],
     ],
   },
   {
-    label: "Applications & data",
-    description: "Manage the services your applications depend on.",
+    label: "Files",
+    description: "Upload, restore, and protect your files.",
+    icon: FiFile,
     tools: [
-      ["Databases", "Create databases and database users.", "/databases"],
-      ["Email", "Manage mailboxes, aliases, and forwarding.", "/email"],
-      ["Backups", "Create and restore account backups.", "/backups"],
+      ["File Manager", "Upload and organize website files.", "/files"], ["Disk Usage", "Review storage usage by directory.", "/files/disk-usage"], ["Backup", "Create or restore an account backup.", "/backups"], ["Git Version Control", "Deploy code from a repository.", "/files/git"],
+    ],
+  },
+  {
+    label: "Databases",
+    description: "Create and manage application data.",
+    icon: FiDatabase,
+    tools: [
+      ["Manage My Databases", "Create databases and users.", "/databases"], ["Database Wizard", "Set up a database step by step.", "/databases/wizard"], ["phpMyAdmin", "Work with database tables and queries.", "/databases/phpmyadmin"],
+    ],
+  },
+  {
+    label: "Domains",
+    description: "Connect, route, and secure your websites.",
+    icon: FiGlobe,
+    tools: [
+      ["Domains", "Manage domains, subdomains, and aliases.", "/domains"], ["Redirects", "Send visitors to another URL.", "/domains/redirects"], ["Zone Editor", "Control DNS records.", "/dns"], ["SSL/TLS", "Secure websites with certificates.", "/ssl"],
+    ],
+  },
+  {
+    label: "Metrics",
+    description: "Understand traffic and resource usage.",
+    icon: FiBarChart2,
+    tools: [
+      ["Visitors", "Review recent visitors.", "/metrics/visitors"], ["Errors", "Inspect recent website errors.", "/metrics/errors"], ["Bandwidth", "Review transfer usage.", "/metrics/bandwidth"], ["Raw Access", "Download raw access logs.", "/metrics/raw-access"],
+    ],
+  },
+  {
+    label: "Security",
+    description: "Protect your account and websites.",
+    icon: FiShield,
+    tools: [
+      ["SSL/TLS Certificates", "Install and manage certificates.", "/ssl"], ["SSH Access", "Manage secure shell access.", "/security/ssh"], ["IP Blocker", "Block unwanted visitors.", "/security/ip-blocker"], ["Manage API Tokens", "Control programmatic access.", "/security/api-tokens"],
+    ],
+  },
+  {
+    label: "Software",
+    description: "Configure runtimes and applications.",
+    icon: FiCode,
+    tools: [
+      ["MultiPHP Manager", "Choose the PHP version for domains.", "/software/php"], ["MultiPHP INI Editor", "Tune PHP runtime settings.", "/software/php-ini"], ["Optimize Website", "Improve content delivery.", "/software/optimize"],
+    ],
+  },
+  {
+    label: "Preferences",
+    description: "Customize your account experience.",
+    icon: FiSettings,
+    tools: [
+      ["Account Preferences", "Manage account settings.", "/profile"], ["Password & Security", "Update account security.", "/profile/security"], ["Contact Information", "Keep contact details current.", "/profile/contact"], ["User Manager", "Manage additional users.", "/profile/users"],
     ],
   },
 ] as const;
@@ -76,12 +122,22 @@ function formatApiError(message: string) {
 }
 
 function ToolIcon({ label }: { label: string }) {
+  const Icon = toolIconByLabel[label] ?? FiTool;
   return (
     <span className="tool-icon" aria-hidden="true">
-      {iconByLabel[label] ?? "•"}
+      <Icon />
     </span>
   );
 }
+
+const toolIconByLabel: Record<string, typeof FiTool> = {
+  "Email Accounts": FiUsers, Forwarders: FiMail, "Email Routing": FiSettings, Autoresponders: FiMail, "Email Filters": FiTool, "Spam Filters": FiShield,
+  "File Manager": FiFile, "Disk Usage": FiHardDrive, Backup: FiArchive, "Git Version Control": FiCode,
+  "Manage My Databases": FiDatabase, "Database Wizard": FiSettings, phpMyAdmin: FiDatabase,
+  Domains: FiGlobe, Redirects: FiGlobe, "Zone Editor": FiGlobe, "SSL/TLS": FiLock, Visitors: FiUsers, Errors: FiTool, Bandwidth: FiBarChart2, "Raw Access": FiFile,
+  "SSL/TLS Certificates": FiLock, "SSH Access": FiCode, "IP Blocker": FiShield, "Manage API Tokens": FiTool, "MultiPHP Manager": FiCode, "MultiPHP INI Editor": FiSettings, "Optimize Website": FiBarChart2,
+  "Account Preferences": FiSettings, "Password & Security": FiLock, "Contact Information": FiUsers, "User Manager": FiUsers,
+};
 
 export default function CustomerDashboard() {
   const [dashboardState, setDashboardState] = useState<DashboardState>({ status: "loading" });
@@ -242,11 +298,12 @@ export default function CustomerDashboard() {
             <a className="text-link" href="/features">View all features <span aria-hidden="true">→</span></a>
           </section>
 
+          <div className="customer-dashboard-layout">
           <div className="tool-groups">
             {toolGroups.map((group) => (
               <section className="tool-group" key={group.label} aria-labelledby={`${group.label}-title`}>
                 <div className="tool-group-header">
-                  <h3 id={`${group.label}-title`}>{group.label}</h3>
+                  <h3 id={`${group.label}-title`}><group.icon aria-hidden="true" /> {group.label}</h3>
                   <p>{group.description}</p>
                 </div>
                 <div className="tools-grid">
@@ -263,6 +320,28 @@ export default function CustomerDashboard() {
                 </div>
               </section>
             ))}
+          </div>
+          <aside className="account-rail" aria-label="Account information">
+            <section className="card account-panel">
+              <h2>General Information</h2>
+              <dl>
+                <div><dt>Current User</dt><dd>{account?.username ?? "example"}</dd></div>
+                <div><dt>Primary Domain</dt><dd><a href="/domains">example.com ↗</a></dd></div>
+                <div><dt>SSL Certificate</dt><dd className="rail-warning"><FiShield /> Self-signed <a href="/ssl">Add SSL Certificate</a></dd></div>
+                <div><dt>Shared IP Address</dt><dd>192.0.2.10</dd></div>
+                <div><dt>Home Directory</dt><dd>/home/{account?.username ?? "example"}</dd></div>
+              </dl>
+            </section>
+            <section className="card account-panel">
+              <h2>Statistics</h2>
+              <dl>
+                <div><dt>Disk Usage</dt><dd>1.95 MB / ∞</dd></div>
+                <div><dt>Bandwidth</dt><dd>56.67 KB / ∞</dd></div>
+                <div><dt>Email Accounts</dt><dd>5 / ∞</dd></div>
+                <div><dt>Databases</dt><dd>2 / ∞</dd></div>
+              </dl>
+            </section>
+          </aside>
           </div>
 
           <div className="dashboard-columns">
