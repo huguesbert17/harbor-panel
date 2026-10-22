@@ -10,20 +10,30 @@ import { LinkButton, Panel, ProgressBar, StatusBadge } from "../components/ui";
 type DashboardState = { accounts: HostingAccount[]; servers: ManagedServer[] };
 
 const favorites = [
-  ["List accounts", "/accounts", "users"],
-  ["Create a new account", "/accounts/new", "users"],
-  ["Process manager", "/services", "activity"],
-  ["DNS zone manager", "/dns", "dns"],
-  ["Backups", "/backups", "backup"],
+  ["List Accounts", "/accounts", "users", "This interface lists your server’s accounts and lets you perform certain actions on them."],
+  ["Process Manager", "/services", "activity", "View and manage your server’s active processes."],
+  ["Create a New Account", "/accounts/new", "users", "Create a new hosting account on this server."],
+  ["DNS Zone Manager", "/dns", "dns", "Manage DNS zones and records for your accounts."],
+  ["Terminal", "/terminal", "terminal", "Open an in-browser terminal for server administration."],
+  ["Mail Queue Manager", "/mail/queue", "settings", "Review and manage queued mail delivery."],
 ];
 
 const toolGroups = [
-  { label: "Server configuration", tools: ["Basic setup", "Server profile", "Service configuration", "Update preferences"] },
-  { label: "Account information", tools: ["List accounts", "Account information", "Account statistics", "Account transfers"] },
-  { label: "Packages and features", tools: ["Create package", "Feature manager", "Manage packages", "Reseller packages"] },
-  { label: "DNS and networking", tools: ["DNS zone manager", "Nameserver configuration", "IP functions", "Network setup"] },
-  { label: "Security center", tools: ["Security advisor", "SSL/TLS manager", "Firewall", "Access control"] },
-  { label: "Services and system health", tools: ["Service status", "Restart services", "System health", "Process manager"] },
+  { label: "Server Configuration", tools: ["Basic WebHost Manager Setup", "Change Root Password", "Server Profile", "Server Time", "Terminal", "Tweak Settings", "Update Preferences"] },
+  { label: "Support", tools: ["Contact Support", "Documentation", "Support Center"] },
+  { label: "Networking Setup", tools: ["Nameserver Configuration", "Network Setup", "IP Functions", "Hostname Configuration"] },
+  { label: "Security Center", tools: ["Security Advisor", "SSL/TLS Manager", "Firewall", "Access Control"] },
+  { label: "Service Configuration", tools: ["Service Manager", "Service Configuration", "Mail Queue Manager", "PHP-FPM Manager"] },
+  { label: "Backup", tools: ["Backup Configuration", "Backup Restoration", "Backup Destination"] },
+  { label: "Server Status", tools: ["Service Status", "Process Manager", "System Health", "Daily Process Log"] },
+  { label: "Account Information", tools: ["List Accounts", "Account Information", "Account Statistics", "Account Transfers"] },
+  { label: "Account Functions", tools: ["Create a New Account", "Terminate an Account", "Modify an Account", "Manage Account Suspensions"] },
+  { label: "Multi Account Functions", tools: ["Modify Multiple Accounts", "Change Multiple Sites", "Manage Account Upgrades"] },
+  { label: "Packages", tools: ["Create Package", "Feature Manager", "Manage Packages", "Reseller Packages"] },
+  { label: "DNS Functions", tools: ["DNS Zone Manager", "Add an A Entry", "Edit DNS Zone", "Synchronize DNS Records"] },
+  { label: "Database Services", tools: ["Manage Database Services", "Configure PostgreSQL", "Configure MySQL"] },
+  { label: "Email", tools: ["Mail Queue Manager", "Mail Delivery Reports", "Mail Configurations"] },
+  { label: "SSL/TLS", tools: ["Install an SSL Certificate", "Manage SSL Hosts", "SSL Storage Manager"] },
 ];
 
 function statusTone(status: string) {
@@ -79,15 +89,15 @@ export default function AdminDashboard() {
   const accounts = dashboard?.accounts ?? [];
   const servers = dashboard?.servers ?? [];
   const primaryServer = servers[0];
-  const [openTools, setOpenTools] = useState<Record<string, boolean>>({ "Server configuration": true, "Account information": true });
+  const [openTools, setOpenTools] = useState<Record<string, boolean>>({ "Server Configuration": true });
 
   return <AdminShell>
     <div className="page-content">
       {isLoading ? <DashboardLoading /> : error ? <DashboardError message={error} onRetry={() => setRequestKey((value) => value + 1)} /> : <>
         <section className="whm-notice" aria-label="System notice"><div className="notice-icon"><Icon name="activity" size={17} /></div><div><strong>Welcome to your control plane</strong><span>Use search, favorites, or the tool groups below to manage this server.</span></div><button className="notice-dismiss" type="button" aria-label="Dismiss notice">Dismiss</button></section>
         <div className="dashboard-grid dashboard-grid-launchpad">
-          <Panel eyebrow="Quick access" title="Favorites"><div className="favorites-grid">{favorites.map(([label, href, icon]) => <a className="favorite-card" href={href} key={label}><span className="favorite-icon"><Icon name={icon as IconName} size={17} /></span><span>{label}</span><Icon name="arrow-up-right" size={14} /></a>)}</div></Panel>
-          <Panel eyebrow="Server statistics" title="System information"><div className="server-stat-list"><div><span>Username</span><strong>root</strong></div><div><span>Hostname</span><strong>{primaryServer?.serverId ?? "No server registered"}</strong></div><div><span>Load averages</span><strong>0.00 0.05 0.07</strong></div><div><span>Operating system</span><strong>Not reported</strong></div></div></Panel>
+          <Panel eyebrow="Quick access" title="Favorites"><div className="favorites-grid">{favorites.map(([label, href, icon, description]) => <a className="favorite-card" href={href} key={label}><span className="favorite-icon"><Icon name={icon as IconName} size={17} /></span><span className="favorite-copy"><strong>{label}</strong><small>{description}</small></span><Icon name="arrow-up-right" size={14} /></a>)}</div></Panel>
+          <Panel eyebrow="Server statistics" title="Statistics"><div className="server-stat-list"><div><span>IPv4 address</span><strong>192.0.2.10</strong></div><div><span>User analytics ID</span><strong>Not enrolled</strong></div><div><span>WP Toolkit</span><strong className="stat-health"><span className="server-status-dot" /> No security issues found</strong></div></div></Panel>
         </div>
         <div className="dashboard-grid dashboard-grid-primary">
         <Panel action={<LinkButton href="/accounts">View all accounts</LinkButton>} className="accounts-panel" eyebrow="Account management" title="Recent hosting accounts">
