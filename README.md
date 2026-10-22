@@ -41,6 +41,9 @@ The API exposes:
 - `GET /healthz` — liveness
 - `GET /readyz` — readiness
 - `GET /api/v1` — API metadata
+- `GET /api/v1/accounts` — hosting-account collection
+- `GET /api/v1/servers` — managed-server collection
+- `POST /api/v1/servers/registrations` — begin server registration
 
 ## Test
 

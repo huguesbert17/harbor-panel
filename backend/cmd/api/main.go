@@ -10,8 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/harbor-panel/harbor-panel/internal/controlplane"
 	"github.com/harbor-panel/harbor-panel/internal/health"
+	"github.com/harbor-panel/harbor-panel/internal/hostingaccounts"
 	"github.com/harbor-panel/harbor-panel/internal/platform/httpserver"
+	"github.com/harbor-panel/harbor-panel/internal/servers"
 )
 
 const version = "0.1.0-foundation"
@@ -33,6 +36,12 @@ func main() {
 	mux.HandleFunc("GET /api/v1", func(w http.ResponseWriter, _ *http.Request) {
 		httpserver.JSON(w, http.StatusOK, map[string]string{"name": "harbor-panel", "version": version})
 	})
+
+	accounts := hostingaccounts.NewMemoryRepository()
+	serverStore := servers.NewMemoryRepository()
+	apiHandler := controlplane.NewHandler(accounts, serverStore)
+	mux.Handle("/api/v1/accounts", apiHandler)
+	mux.Handle("/api/v1/servers", apiHandler)
 
 	server := httpserver.New(addr, mux, logger)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
