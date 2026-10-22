@@ -218,6 +218,36 @@ func TestRequirePermissionRejectsUnauthenticatedAndForbiddenRequests(t *testing.
 	}
 }
 
+func TestPermissionAuthorizerRequiresResolvedPermission(t *testing.T) {
+	authorizer := PermissionAuthorizer{}
+	principal := Principal{UserID: "user-1", Permissions: []identity.Permission{identity.PermissionUsersRead}}
+
+	if err := authorizer.Authorize(context.Background(), principal, identity.PermissionUsersRead, Resource{}); err != nil {
+		t.Fatalf("expected granted permission, got %v", err)
+	}
+	if err := authorizer.Authorize(context.Background(), principal, identity.PermissionUsersManage, Resource{}); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected forbidden permission, got %v", err)
+	}
+	if err := authorizer.Authorize(context.Background(), Principal{}, identity.PermissionUsersRead, Resource{}); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("expected unauthenticated principal, got %v", err)
+	}
+}
+
+func TestProtectAuthenticatesBeforeAuthorizing(t *testing.T) {
+	authenticator := &recordingAuthenticator{principal: Principal{UserID: "user-1"}}
+	middleware := NewMiddleware(authenticator, PermissionAuthorizer{})
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	recorder := httptest.NewRecorder()
+	middleware.Protect(identity.PermissionUsersRead, nil, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not run without the resolved permission")
+	})).ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d", recorder.Code)
+	}
+}
+
 type recordingAuthenticator struct {
 	credentials Credentials
 	principal   Principal

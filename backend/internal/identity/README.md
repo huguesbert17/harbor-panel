@@ -21,6 +21,7 @@ contains its secret only at issuance so the API layer can show it once.
 
 - `PasswordHasher` abstracts an adaptive password-specific hash algorithm.
 - `PasswordPolicy` validates a plaintext password without persisting it.
+- `UserStore` resolves user identity without exposing credential material.
 - `SessionStore` persists and revokes authenticated sessions.
 - `TokenSecretGenerator` creates a secret shown only at token issuance.
 - `TokenDigestor` converts presented token secrets into one-way lookup values.
@@ -29,6 +30,10 @@ contains its secret only at issuance so the API layer can show it once.
 Implementations must remain auditable, avoid logging secrets, and preserve
 constant-time verification behavior supplied by the selected password or token
 algorithm.
+
+`UserStore` is deliberately read-only in this foundation. User lifecycle
+commands and persistence adapters will be added with explicit authorization and
+audit behavior rather than allowing authentication middleware to mutate users.
 
 ## Authorization vocabulary
 

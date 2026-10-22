@@ -80,3 +80,26 @@ type Resource struct {
 type Authorizer interface {
 	Authorize(ctx context.Context, principal Principal, permission identity.Permission, resource Resource) error
 }
+
+// AuthorizerFunc adapts a function to Authorizer. It is useful for composing
+// a policy implementation during application wiring and in focused tests.
+type AuthorizerFunc func(context.Context, Principal, identity.Permission, Resource) error
+
+func (authorizer AuthorizerFunc) Authorize(ctx context.Context, principal Principal, permission identity.Permission, resource Resource) error {
+	return authorizer(ctx, principal, permission, resource)
+}
+
+// PermissionAuthorizer is the baseline policy for permissions already resolved
+// into a Principal. Resource ownership checks should be layered on top by the
+// owning module; this type intentionally does not grant access by role name.
+type PermissionAuthorizer struct{}
+
+func (PermissionAuthorizer) Authorize(_ context.Context, principal Principal, permission identity.Permission, _ Resource) error {
+	if principal.UserID == "" {
+		return ErrUnauthenticated
+	}
+	if !principal.HasPermission(permission) {
+		return ErrForbidden
+	}
+	return nil
+}

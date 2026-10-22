@@ -73,3 +73,15 @@ func TestServerStatusSupportsAvailableCapabilitiesOnly(t *testing.T) {
 		t.Fatalf("expected status to be valid, got %v", err)
 	}
 }
+
+func TestHeartbeatRequestValidateAcceptsBoundedObservation(t *testing.T) {
+	request := HeartbeatRequest{
+		ServerID:     "server-1",
+		AgentVersion: "0.1.0",
+		ObservedAt:   time.Now().UTC(),
+		Capabilities: []Capability{{Name: CapabilityWebServer, Status: CapabilityAvailable}},
+	}
+	if err := request.Validate(); err != nil {
+		t.Fatalf("expected bounded heartbeat to be valid, got %v", err)
+	}
+}

@@ -96,6 +96,22 @@ type EnrollmentResult struct {
 	AcceptedAt time.Time          `json:"accepted_at"`
 }
 
+// HeartbeatRequest is the bounded status report sent by an enrolled agent.
+// It contains observed metadata only; it has no command or executable payload.
+type HeartbeatRequest struct {
+	ServerID     ID           `json:"server_id"`
+	AgentVersion string       `json:"agent_version"`
+	Capabilities []Capability `json:"capabilities"`
+	ObservedAt   time.Time    `json:"observed_at"`
+}
+
+type HeartbeatResult struct {
+	ServerID     ID                 `json:"server_id"`
+	Registration RegistrationStatus `json:"registration_status"`
+	Connection   ConnectionStatus   `json:"connection_status"`
+	AcceptedAt   time.Time          `json:"accepted_at"`
+}
+
 type ServerStatus struct {
 	ServerID     ID                 `json:"server_id"`
 	Registration RegistrationStatus `json:"registration_status"`
@@ -137,6 +153,19 @@ func (request EnrollmentRequest) Validate() error {
 	}
 	if !isSafeToken(request.AgentVersion, 64) {
 		return invalidField("agent_version", "must be a safe identifier")
+	}
+	return validateCapabilities(request.Capabilities)
+}
+
+func (request HeartbeatRequest) Validate() error {
+	if !isSafeToken(string(request.ServerID), 128) {
+		return invalidField("server_id", "must be a safe identifier")
+	}
+	if !isSafeToken(request.AgentVersion, 64) {
+		return invalidField("agent_version", "must be a safe identifier")
+	}
+	if request.ObservedAt.IsZero() {
+		return invalidField("observed_at", "must be provided")
 	}
 	return validateCapabilities(request.Capabilities)
 }

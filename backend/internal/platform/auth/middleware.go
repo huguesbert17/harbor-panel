@@ -105,6 +105,18 @@ func (middleware Middleware) RequirePermission(permission identity.Permission, r
 	}
 }
 
+// Protect composes authentication and one permission check in the safe order.
+// It is intended for route wiring in cmd/api:
+//
+//	protected := middleware.Protect(permission, resolve, handler)
+//	mux.Handle("GET /api/v1/resource", protected)
+//
+// Authentication always runs before authorization, and neither layer invokes
+// the application handler when its dependency is unavailable.
+func (middleware Middleware) Protect(permission identity.Permission, resolve ResourceResolver, next http.Handler) http.Handler {
+	return middleware.Authenticate(middleware.RequirePermission(permission, resolve)(next))
+}
+
 func (middleware Middleware) sessionCookieName() string {
 	if middleware.SessionCookieName != "" {
 		return middleware.SessionCookieName

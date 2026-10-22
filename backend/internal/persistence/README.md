@@ -24,9 +24,14 @@ returning. Migrations are versioned in `migrations.go`, run in transactions,
 and recorded in `schema_migrations`. New migrations must be additive and have
 adapter tests for existing data and rollback-sensitive behavior.
 
-## Wiring note
+## API wiring
 
-The current API still constructs concrete in-memory repositories. A later API
-composition change should open one database at startup and inject the SQLite
-repositories into the control-plane handler. This task intentionally does not
-modify `cmd/api` or authentication code.
+`cmd/api` opens one database during process startup, applies migrations, and
+constructs both SQLite repositories before registering the control-plane
+routes. The database is closed during process shutdown. The control-plane
+handler still depends only on the domain persistence interfaces, so this
+composition can later select another adapter without changing HTTP handlers.
+
+The API currently uses `HARBOR_DB_PATH`, defaulting to `./harbor.db`. This is
+appropriate for local development and single-process operation; it is not yet
+a production multi-node storage strategy.

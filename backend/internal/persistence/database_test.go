@@ -21,11 +21,11 @@ func TestOpenSQLiteInitializesSchemaAndMigrationsAreIdempotent(t *testing.T) {
 	if err := database.SQL().QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil {
 		t.Fatalf("read schema version: %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("expected schema version 1, got %d", version)
+	if version != 2 {
+		t.Fatalf("expected schema version 2, got %d", version)
 	}
 
-	for _, table := range []string{"hosting_accounts", "managed_servers"} {
+	for _, table := range []string{"hosting_accounts", "managed_servers", "domains", "dns_zones"} {
 		var name string
 		if err := database.SQL().QueryRow(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&name); err != nil {
 			if err == sql.ErrNoRows {

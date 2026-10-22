@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/harbor-panel/harbor-panel/internal/controlplane"
+	"github.com/harbor-panel/harbor-panel/internal/domains"
 	"github.com/harbor-panel/harbor-panel/internal/health"
 	"github.com/harbor-panel/harbor-panel/internal/persistence"
 	"github.com/harbor-panel/harbor-panel/internal/persistence/sqlite"
@@ -45,6 +46,12 @@ func main() {
 		logger.Error("server repository startup failed", "error", err)
 		os.Exit(1)
 	}
+	domainRepository, err := sqlite.NewDomainRepository(database)
+	if err != nil {
+		logger.Error("domain repository startup failed", "error", err)
+		os.Exit(1)
+	}
+	domainService := domains.NewService(domainRepository)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -57,9 +64,11 @@ func main() {
 		httpserver.JSON(w, http.StatusOK, map[string]string{"name": "harbor-panel", "version": version})
 	})
 
-	apiHandler := controlplane.NewHandler(accountRepository, serverRepository)
+	apiHandler := controlplane.NewHandler(accountRepository, serverRepository, domainService)
 	mux.Handle("/api/v1/accounts", apiHandler)
 	mux.Handle("/api/v1/servers", apiHandler)
+	mux.Handle("/api/v1/domains", apiHandler)
+	mux.Handle("/api/v1/dns/", apiHandler)
 
 	server := httpserver.New(addr, mux, logger)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

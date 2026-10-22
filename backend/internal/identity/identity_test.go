@@ -58,10 +58,21 @@ func TestTokenIsActive(t *testing.T) {
 func TestContractsCanBeImplementedWithoutFrameworkDependencies(t *testing.T) {
 	var _ PasswordHasher = fakePasswordHasher{}
 	var _ PasswordPolicy = fakePasswordPolicy{}
+	var _ UserStore = fakeUserStore{}
 	var _ SessionStore = fakeSessionStore{}
 	var _ TokenDigestor = fakeTokenDigestor{}
 	var _ TokenSecretGenerator = fakeTokenSecretGenerator{}
 	var _ TokenStore = fakeTokenStore{}
+}
+
+type fakeUserStore struct{}
+
+func (fakeUserStore) FindByID(context.Context, UserID) (User, error) {
+	return User{}, errors.New("not found")
+}
+
+func (fakeUserStore) FindByEmail(context.Context, string) (User, error) {
+	return User{}, errors.New("not found")
 }
 
 type fakePasswordHasher struct{}

@@ -45,6 +45,34 @@ var migrations = []migration{
 			)`,
 		},
 	},
+	{
+		version: 2,
+		statements: []string{
+			`CREATE TABLE IF NOT EXISTS domains (
+				id TEXT PRIMARY KEY,
+				account_id TEXT NOT NULL REFERENCES hosting_accounts(id),
+				name TEXT NOT NULL UNIQUE,
+				status TEXT NOT NULL CHECK (status IN ('active', 'pending')),
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+			`CREATE TABLE IF NOT EXISTS dns_zones (
+				id TEXT PRIMARY KEY,
+				account_id TEXT NOT NULL REFERENCES hosting_accounts(id),
+				domain_id TEXT NOT NULL UNIQUE REFERENCES domains(id),
+				name TEXT NOT NULL UNIQUE,
+				status TEXT NOT NULL CHECK (status IN ('active', 'pending')),
+				created_at TEXT NOT NULL,
+				updated_at TEXT NOT NULL
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_domains_account_id ON domains (account_id)`,
+			`CREATE TABLE IF NOT EXISTS dns_records (
+				id TEXT PRIMARY KEY, zone_id TEXT NOT NULL REFERENCES dns_zones(id) ON DELETE CASCADE,
+				name TEXT NOT NULL, type TEXT NOT NULL, ttl INTEGER NOT NULL, value TEXT NOT NULL,
+				UNIQUE (zone_id, name, type, value)
+			)`,
+		},
+	},
 }
 
 // Migrate applies all pending schema migrations transactionally and is safe to

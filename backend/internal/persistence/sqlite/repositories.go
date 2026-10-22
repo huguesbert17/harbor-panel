@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/harbor-panel/harbor-panel/internal/domains"
 	"github.com/harbor-panel/harbor-panel/internal/hostingaccounts"
 	"github.com/harbor-panel/harbor-panel/internal/persistence"
 	"github.com/harbor-panel/harbor-panel/internal/servers"
@@ -21,6 +22,193 @@ import (
 var (
 	ErrAlreadyExists = errors.New("record already exists")
 )
+
+type DomainRepository struct{ database *persistence.Database }
+
+var _ domains.Repository = (*DomainRepository)(nil)
+
+func NewDomainRepository(database *persistence.Database) (*DomainRepository, error) {
+	if database == nil || database.SQL() == nil {
+		return nil, errors.New("persistence database is required")
+	}
+	return &DomainRepository{database: database}, nil
+}
+
+func (repository *DomainRepository) CreateDomain(ctx context.Context, domain domains.Domain) error {
+	if domain.ID == "" || domain.AccountID == "" || domain.Name == "" {
+		return errors.New("domain id, account id, and name are required")
+	}
+	if domain.Status != domains.StatusActive && domain.Status != domains.StatusPending {
+		return fmt.Errorf("invalid domain status %q", domain.Status)
+	}
+	_, err := repository.database.SQL().ExecContext(ctx, `INSERT INTO domains (id, account_id, name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`, domain.ID, domain.AccountID, domain.Name, domain.Status, domain.CreatedAt.UTC().Format(time.RFC3339Nano), domain.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		if isConstraintError(err) {
+			return ErrAlreadyExists
+		}
+		return fmt.Errorf("create domain: %w", err)
+	}
+	return nil
+}
+
+func (repository *DomainRepository) FindDomainByID(ctx context.Context, id string) (domains.Domain, error) {
+	var domain domains.Domain
+	var created, updated string
+	err := repository.database.SQL().QueryRowContext(ctx, `SELECT id, account_id, name, status, created_at, updated_at FROM domains WHERE id = ?`, id).Scan(&domain.ID, &domain.AccountID, &domain.Name, &domain.Status, &created, &updated)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domains.Domain{}, domains.ErrNotFound
+	}
+	if err != nil {
+		return domains.Domain{}, fmt.Errorf("find domain: %w", err)
+	}
+	domain.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+	if err != nil {
+		return domains.Domain{}, fmt.Errorf("decode domain created time: %w", err)
+	}
+	domain.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+	if err != nil {
+		return domains.Domain{}, fmt.Errorf("decode domain updated time: %w", err)
+	}
+	return domain, nil
+}
+
+func (repository *DomainRepository) ListDomains(ctx context.Context, accountID string) ([]domains.Domain, error) {
+	query, args := `SELECT id, account_id, name, status, created_at, updated_at FROM domains`, []any{}
+	if accountID != "" {
+		query += ` WHERE account_id = ?`
+		args = append(args, accountID)
+	}
+	query += ` ORDER BY name, id`
+	rows, err := repository.database.SQL().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list domains: %w", err)
+	}
+	defer rows.Close()
+	items := make([]domains.Domain, 0)
+	for rows.Next() {
+		var item domains.Domain
+		var created, updated string
+		if err := rows.Scan(&item.ID, &item.AccountID, &item.Name, &item.Status, &created, &updated); err != nil {
+			return nil, fmt.Errorf("scan domain: %w", err)
+		}
+		item.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+		if err != nil {
+			return nil, fmt.Errorf("decode domain created time: %w", err)
+		}
+		item.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+		if err != nil {
+			return nil, fmt.Errorf("decode domain updated time: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate domains: %w", err)
+	}
+	return items, nil
+}
+
+func (repository *DomainRepository) CreateZone(ctx context.Context, zone domains.DNSZone) error {
+	if zone.ID == "" || zone.DomainID == "" || zone.Name == "" {
+		return errors.New("zone id, domain id, and name are required")
+	}
+	_, err := repository.database.SQL().ExecContext(ctx, `INSERT INTO dns_zones (id, account_id, domain_id, name, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, zone.ID, zone.AccountID, zone.DomainID, zone.Name, zone.Status, zone.CreatedAt.UTC().Format(time.RFC3339Nano), zone.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		if isConstraintError(err) {
+			return ErrAlreadyExists
+		}
+		return fmt.Errorf("create DNS zone: %w", err)
+	}
+	return nil
+}
+
+func (repository *DomainRepository) FindZoneByID(ctx context.Context, id string) (domains.DNSZone, error) {
+	var zone domains.DNSZone
+	var created, updated string
+	err := repository.database.SQL().QueryRowContext(ctx, `SELECT id, account_id, domain_id, name, status, created_at, updated_at FROM dns_zones WHERE id = ?`, id).Scan(&zone.ID, &zone.AccountID, &zone.DomainID, &zone.Name, &zone.Status, &created, &updated)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domains.DNSZone{}, domains.ErrNotFound
+	}
+	if err != nil {
+		return domains.DNSZone{}, fmt.Errorf("find DNS zone: %w", err)
+	}
+	zone.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+	if err != nil {
+		return domains.DNSZone{}, err
+	}
+	zone.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+	return zone, err
+}
+
+func (repository *DomainRepository) ListZones(ctx context.Context, accountID string) ([]domains.DNSZone, error) {
+	query, args := `SELECT id, account_id, domain_id, name, status, created_at, updated_at FROM dns_zones`, []any{}
+	if accountID != "" {
+		query += ` WHERE account_id = ?`
+		args = append(args, accountID)
+	}
+	query += ` ORDER BY name, id`
+	rows, err := repository.database.SQL().QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list DNS zones: %w", err)
+	}
+	defer rows.Close()
+	items := make([]domains.DNSZone, 0)
+	for rows.Next() {
+		var item domains.DNSZone
+		var created, updated string
+		if err := rows.Scan(&item.ID, &item.AccountID, &item.DomainID, &item.Name, &item.Status, &created, &updated); err != nil {
+			return nil, err
+		}
+		item.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+		if err != nil {
+			return nil, err
+		}
+		item.UpdatedAt, err = time.Parse(time.RFC3339Nano, updated)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (repository *DomainRepository) ListRecords(ctx context.Context, zoneID string) ([]domains.DNSRecord, error) {
+	rows, err := repository.database.SQL().QueryContext(ctx, `SELECT id, zone_id, name, type, ttl, value FROM dns_records WHERE zone_id = ? ORDER BY name, type, id`, zoneID)
+	if err != nil {
+		return nil, fmt.Errorf("list DNS records: %w", err)
+	}
+	defer rows.Close()
+	items := make([]domains.DNSRecord, 0)
+	for rows.Next() {
+		var item domains.DNSRecord
+		if err := rows.Scan(&item.ID, &item.ZoneID, &item.Name, &item.Type, &item.TTL, &item.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+func (repository *DomainRepository) CreateRecord(ctx context.Context, zoneID string, command domains.CreateDNSRecordCommand) (domains.DNSRecord, error) {
+	if err := command.Validate(); err != nil {
+		return domains.DNSRecord{}, err
+	}
+	id, err := newServerID()
+	if err != nil {
+		return domains.DNSRecord{}, err
+	}
+	id = "dnsrec_" + id[4:]
+	item := domains.DNSRecord{ID: id, ZoneID: zoneID, Name: command.Name, Type: strings.ToUpper(command.Type), TTL: command.TTL, Value: command.Value}
+	_, err = repository.database.SQL().ExecContext(ctx, `INSERT INTO dns_records (id, zone_id, name, type, ttl, value) VALUES (?, ?, ?, ?, ?, ?)`, item.ID, item.ZoneID, item.Name, item.Type, item.TTL, item.Value)
+	if err != nil {
+		if isConstraintError(err) {
+			return domains.DNSRecord{}, ErrAlreadyExists
+		}
+		return domains.DNSRecord{}, fmt.Errorf("create DNS record: %w", err)
+	}
+	return item, nil
+}
 
 // AccountRepository persists hosting accounts.
 type AccountRepository struct {

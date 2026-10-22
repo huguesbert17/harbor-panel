@@ -10,6 +10,20 @@ This module owns lifecycle vocabulary and contract validation only. It does
 not authenticate users, issue credentials, persist server records, open
 network connections, or execute privileged operations.
 
+## Agent service scaffold
+
+`AgentService` is the first bounded service boundary for agent enrollment and
+heartbeat reporting. It validates `EnrollmentRequest` and
+`HeartbeatRequest`, then delegates to the narrow `AgentStore` interface. The
+store is intentionally an adapter seam: this change does not add a database,
+transport, authentication, proof verification, credential issuance, replay
+protection, or network listener.
+
+Heartbeat reports contain only server identity, agent version, capabilities,
+and an observation timestamp. There is no command, script, shell, or opaque
+execution field. Unknown and revoked server handling must be implemented by a
+future security-aware store/transport integration.
+
 Persistence is defined additively through `Repository` and
 `PersistentRepository`. The current local implementation lives in
 `internal/persistence/sqlite.ServerRepository`; it stores the registration

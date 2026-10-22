@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/harbor-panel/harbor-panel/internal/domains"
 	"github.com/harbor-panel/harbor-panel/internal/hostingaccounts"
 	"github.com/harbor-panel/harbor-panel/internal/persistence"
 	"github.com/harbor-panel/harbor-panel/internal/servers"
@@ -105,4 +106,55 @@ func TestRepositoriesRespectCanceledContext(t *testing.T) {
 	if _, err := accounts.FindByID(canceled, "missing"); err == nil {
 		t.Fatal("expected canceled context error")
 	}
+}
+
+func TestDomainRepositoryPersistsDomainAndZone(t *testing.T) {
+	database, err := persistence.OpenSQLite(context.Background(), ":memory:")
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	accounts, err := NewAccountRepository(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := accounts.Create(context.Background(), hostingaccounts.Account{ID: "acct_1", Username: "harbor", Status: hostingaccounts.StatusActive}); err != nil {
+		t.Fatal(err)
+	}
+	repository, err := NewDomainRepository(database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := domains.NewService(repository)
+	domain, err := service.CreateDomain(context.Background(), domains.CreateDomainCommand{AccountID: "acct_1", Name: "Example.com"})
+	if err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	zone, err := service.CreateZone(context.Background(), domains.CreateZoneCommand{AccountID: "acct_1", DomainID: domain.ID})
+	if err != nil {
+		t.Fatalf("create zone: %v", err)
+	}
+	if zone.Name != "example.com" || len(mustListDomains(t, repository)) != 1 || len(mustListZones(t, repository)) != 1 {
+		t.Fatalf("unexpected persisted domain/zone: %#v", zone)
+	}
+	if _, err := service.CreateDomain(context.Background(), domains.CreateDomainCommand{AccountID: "acct_missing", Name: "other.com"}); err == nil {
+		t.Fatal("expected account foreign-key failure")
+	}
+}
+
+func mustListDomains(t *testing.T, repository *DomainRepository) []domains.Domain {
+	t.Helper()
+	items, err := repository.ListDomains(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return items
+}
+func mustListZones(t *testing.T, repository *DomainRepository) []domains.DNSZone {
+	t.Helper()
+	items, err := repository.ListZones(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return items
 }

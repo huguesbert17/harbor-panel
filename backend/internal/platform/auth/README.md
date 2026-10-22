@@ -19,6 +19,24 @@ Application modules should ask an `Authorizer` about a permission and resource
 instead of depending on a particular web framework or credential format. An
 API adapter may use `Authenticator` to translate credentials into a principal.
 
+`PermissionAuthorizer` is the minimal policy adapter for permissions already
+resolved into a principal. `AuthorizerFunc` is an adapter for application-owned
+resource policies. Use `Middleware.Protect` when wiring a route so the
+authentication and authorization order is explicit.
+
+## Default authorization policy
+
+`RolePolicy` provides a small deny-by-default implementation of `Authorizer`.
+It checks explicit permissions on the principal before role grants and returns
+`ErrForbidden` for unknown permissions. `DefaultRolePolicy` contains only the
+identity-management grants owned by the identity boundary. Feature modules must
+provide their own grants during application composition; this package must not
+reach into their tables or domain rules.
+
+The policy does not perform resource ownership or tenant checks. Compose it
+with a resource-aware authorizer when a permission depends on the hosting
+account, domain, or managed server being addressed.
+
 ## Security rules
 
 - Do not place plaintext passwords or token secrets in `Principal`.
@@ -57,6 +75,5 @@ handler.
 
 ## Future work
 
-- role-to-permission policy evaluation;
 - MFA and recent-authentication requirements;
 - audit hooks for authorization decisions.

@@ -1,0 +1,12 @@
+"use client";
+
+import { FormEvent, useEffect, useState } from "react";
+import { createCustomerDomain, getCustomerDashboardData, listCustomerDomains, type Domain } from "../lib/customer-api";
+
+export default function CustomerDomainsPage() {
+  const [accountId, setAccountId] = useState(""); const [domains, setDomains] = useState<Domain[]>([]); const [name, setName] = useState(""); const [message, setMessage] = useState("Loading domains…");
+  const load = (id: string) => listCustomerDomains(id).then((items) => { setDomains(items); setMessage(items.length ? "" : "No domains have been added yet."); }).catch((error: Error) => setMessage(error.message));
+  useEffect(() => { getCustomerDashboardData().then((data) => { const id = data.accounts[0]?.id; if (!id) return setMessage("No hosting account is assigned."); setAccountId(id); return load(id); }).catch((error: Error) => setMessage(error.message)); }, []);
+  async function submit(event: FormEvent) { event.preventDefault(); if (!accountId || !name.trim()) return; setMessage("Creating domain…"); try { const domain = await createCustomerDomain({ account_id: accountId, name }); setDomains((current) => [...current, domain]); setName(""); setMessage("Domain created."); } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to create domain."); } }
+  return <main className="module-page"><div className="module-heading"><div><p className="eyebrow">Websites &amp; domains</p><h1>Domains</h1><p className="subtitle">Manage domains connected to your hosting account.</p></div><a className="primary-button" href="/">Back to dashboard</a></div><section className="card module-panel"><h2>Add domain</h2><form className="module-form" onSubmit={submit}><input aria-label="Domain name" placeholder="example.com" value={name} onChange={(event) => setName(event.target.value)} /><button className="primary-button" type="submit">Add domain</button></form></section><section className="card module-panel"><h2>Your domains</h2>{message && <p className="module-message">{message}</p>}{domains.length > 0 && <div className="module-list">{domains.map((domain) => <div className="module-row" key={domain.id}><div><strong>{domain.name}</strong><small>{domain.kind} · {domain.documentRoot ?? "Document root not assigned"}</small></div><span className="status-pill online">● {domain.status}</span><a className="text-link" href="/dns">DNS zones</a></div>)}</div>}</section></main>;
+}

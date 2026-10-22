@@ -19,6 +19,14 @@ type PasswordPolicy interface {
 	Validate(password string) error
 }
 
+// UserStore provides the identity module's persistence boundary. Implementations
+// must return users without credential material; password hashes and token
+// digests are deliberately managed by their dedicated contracts below.
+type UserStore interface {
+	FindByID(ctx context.Context, id UserID) (User, error)
+	FindByEmail(ctx context.Context, email string) (User, error)
+}
+
 type SessionCreateCommand struct {
 	UserID    UserID
 	ExpiresAt time.Time
