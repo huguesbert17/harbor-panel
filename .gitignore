@@ -1,6 +1,11 @@
 # Build output
 /bin/
 /dist/
+/node_modules/
+**/node_modules/
+/.next/
+**/.next/
+frontend/**/.next/
 
 # Local configuration and secrets
 .env
