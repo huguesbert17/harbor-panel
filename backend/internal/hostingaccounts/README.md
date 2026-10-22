@@ -13,7 +13,14 @@ The module owns account rules and contracts. It must not directly configure Ngin
 - `Account`: stable account identity, username, and lifecycle status
 - `CreateCommand`: input for account creation
 - `Repository`: persistence boundary
+- `PersistentRepository`: error-aware collection persistence boundary
 - `Service`: application boundary for account use cases
+
+The domain package does not import SQL or a database driver. The local
+implementation is `internal/persistence/sqlite.AccountRepository`, which
+implements both `Repository` and `PersistentRepository`. `List` is retained
+for compatibility with the first API slice; new callers should use `ListAll`
+when they need to distinguish an empty result from a storage failure.
 
 ## Future work
 

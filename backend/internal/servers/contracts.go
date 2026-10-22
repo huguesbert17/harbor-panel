@@ -2,6 +2,7 @@
 package servers
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -9,6 +10,22 @@ import (
 )
 
 type ID string
+
+// Repository is the minimal server persistence contract used by the current
+// control-plane boundary. Persistent implementations should also satisfy
+// PersistentRepository so query failures remain observable.
+type Repository interface {
+	List(ctx context.Context) []ServerStatus
+	Register(ctx context.Context, request RegistrationRequest) (ServerStatus, error)
+}
+
+// PersistentRepository extends Repository with error-aware reads and direct
+// lookup for workers and enrollment flows.
+type PersistentRepository interface {
+	Repository
+	ListAll(ctx context.Context) ([]ServerStatus, error)
+	FindByID(ctx context.Context, id ID) (ServerStatus, error)
+}
 
 type RegistrationStatus string
 

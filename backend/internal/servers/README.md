@@ -10,6 +10,11 @@ This module owns lifecycle vocabulary and contract validation only. It does
 not authenticate users, issue credentials, persist server records, open
 network connections, or execute privileged operations.
 
+Persistence is defined additively through `Repository` and
+`PersistentRepository`. The current local implementation lives in
+`internal/persistence/sqlite.ServerRepository`; it stores the registration
+request and status record without coupling this module to SQLite.
+
 ## Lifecycle
 
 The intended lifecycle is:
